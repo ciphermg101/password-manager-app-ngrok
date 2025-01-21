@@ -61,7 +61,7 @@ const Enter2FACode: React.FC = () => {
         setSnackbarSeverity("success");
         setTimeout(() => {
           navigate("/dashboard");
-        }, 2000);
+        }, 5000);
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -99,7 +99,6 @@ const Enter2FACode: React.FC = () => {
       setLoading(false);
       setOpenSnackbar(true);
     }
-
   };
 
   return (

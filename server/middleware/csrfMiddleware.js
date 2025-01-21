@@ -1,31 +1,15 @@
 const csrf = require('csurf');
 
 // Helper to generate cookie settings
-const getCookieSettings = (req) => {
-  const cookieSettings = {
+const getCookieSettings = () => {
+  return {
     httpOnly: true,
     sameSite: 'Lax',
+    secure: true, // Always secure since we're using ngrok
     maxAge: 3600000, // 1-hour expiration
     path: '/',
+    domain: 'witty-tadpole-generally.ngrok-free.app',
   };
-
-  const origin = req.get('origin');
-  console.log('[INFO] Origin:', origin);
-
-  if (origin) {
-    if (origin.includes('ngrok')) {
-      cookieSettings.secure = true;
-      cookieSettings.domain = 'witty-tadpole-generally.ngrok-free.app';
-    } else if (origin.includes('localhost')) {
-      cookieSettings.secure = false;
-      cookieSettings.domain = 'localhost';
-    } else {
-      cookieSettings.secure = process.env.NODE_ENV === 'production';
-    }
-  }
-
-  console.log('[INFO] Cookie Settings:', cookieSettings);
-  return cookieSettings;
 };
 
 // CSRF middleware configuration
@@ -33,8 +17,8 @@ const csrfProtection = csrf({
   cookie: {
     httpOnly: true,
     sameSite: 'Lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 3600000, // 1-hour expiration
+    secure: true, 
+    maxAge: 3600000,
     path: '/',
   },
 });
@@ -43,19 +27,10 @@ const csrfProtection = csrf({
 const csrfTokenHandler = (req, res) => {
   try {
     const csrfToken = req.csrfToken();
-    console.log('[INFO] Generated CSRF token:', csrfToken);
-
-    // Use the helper to generate consistent cookie settings
-    const cookieSettings = getCookieSettings(req);
+    const cookieSettings = getCookieSettings();
     res.cookie('csrfToken', csrfToken, cookieSettings);
-
     res.json({ csrfToken });
   } catch (err) {
-    console.error(
-      '[ERROR] Error generating CSRF token:',
-      err.message,
-      { method: req.method, url: req.originalUrl }
-    );
     res.status(500).json({ error: 'Internal server error generating CSRF token' });
   }
 };
@@ -63,7 +38,6 @@ const csrfTokenHandler = (req, res) => {
 // Global error handler for CSRF validation errors
 const csrfErrorHandler = (err, req, res, next) => {
   if (err.code === 'EBADCSRFTOKEN') {
-    console.error('[ERROR] CSRF token validation failed:', err.message);
     res.status(403).json({ error: 'Invalid CSRF token' });
   } else {
     next(err);

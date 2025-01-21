@@ -41,8 +41,8 @@ const ForgotPasswordPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await axiosInstance.post('/auth/password-reset', { email }, { withCredentials: true });
-
+      const response = await axiosInstance.post('/auth/password-reset', { email }, { timeout: 10000 });
+      
       if (response.status === 200) {
         setSnackbarMessage(`A password reset link has been sent to ${email}. Please check your inbox.`);
         setSnackbarSeverity('success');

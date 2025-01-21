@@ -106,7 +106,7 @@ const Dashboard: React.FC<Props> = ({ username, onLogout }) => {
     useEffect(() => {
         const fetchCredentials = async () => {
             try {
-                const response = await axiosInstance.get('/account/fetch-allcreds', { withCredentials: true });
+                const response = await axiosInstance.get('/account/fetch-allcreds');
                 if (response.status === 200) {
                     setPasswords(response.data);
                 }
@@ -143,7 +143,7 @@ const Dashboard: React.FC<Props> = ({ username, onLogout }) => {
     useEffect(() => {
         const fetchUsername = async () => {
             try {
-                const response = await axiosInstance.get('/account/get-username', { withCredentials: true });
+                const response = await axiosInstance.get('/account/get-username');
                 if (response.status === 200) {
                     setFetchedUsername(response.data.username);
                 }
@@ -192,7 +192,7 @@ const Dashboard: React.FC<Props> = ({ username, onLogout }) => {
                     password: newPassword,
                 };
     
-                const response = await axiosInstance.post("/account/save-password", payload, { withCredentials: true });
+                const response = await axiosInstance.post("/account/save-password", payload);
     
                 if (response.status === 201) {
                     // Assuming the response contains the newly created password
@@ -259,9 +259,8 @@ const Dashboard: React.FC<Props> = ({ username, onLogout }) => {
     const deletePasswordFromDatabase = async (passwordEntry: PasswordEntry) => {
         try {
             await axiosInstance.delete('/account/delete-password', {
-                withCredentials: true,
-                data: { username: passwordEntry.username, site_url: passwordEntry.url }, // Send the request payload
-              });              
+                data: { username: passwordEntry.username, site_url: passwordEntry.url },
+            });
         } catch (error) {
             console.error('Failed to delete password:', error);
             setError('Failed to delete password. Please try again.');
@@ -301,7 +300,7 @@ const Dashboard: React.FC<Props> = ({ username, onLogout }) => {
 
     const updatePasswordInDatabase = async (passwordEntry: PasswordEntry) => {
         try {
-            await axiosInstance.post('/account/update-password', passwordEntry, { withCredentials: true });
+            await axiosInstance.post('/account/update-password', passwordEntry);
         } catch (error) {
             console.error('Failed to update password:', error);
             setError('Failed to update password. Please try again.');
@@ -356,7 +355,7 @@ const Dashboard: React.FC<Props> = ({ username, onLogout }) => {
                         'Content-Type': 'multipart/form-data',
                         'X-CSRF-Token': csrfToken,
                         'Authorization': `Bearer ${authToken}`,
-                    }, withCredentials: true,
+                    },
                 });
     
                 if (response.status === 200) {
@@ -406,7 +405,7 @@ const Dashboard: React.FC<Props> = ({ username, onLogout }) => {
                 headers: {
                     'X-CSRF-Token': csrfToken,
                     'Authorization': `Bearer ${authToken}`,
-                }, withCredentials: true,
+                },
             });
             
             // If the response is not successful, display an error

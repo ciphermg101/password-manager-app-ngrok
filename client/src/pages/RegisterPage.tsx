@@ -13,10 +13,10 @@ import {
   Alert,
 } from "@mui/material";
 import { LockOutlined, Visibility, VisibilityOff } from "@mui/icons-material";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import axiosInstance from "../utils/axiosInstance";
+import axiosInstance, { getCsrfToken } from "../utils/axiosInstance";
 
 interface FormData {
   username: string;
@@ -35,12 +35,26 @@ const Register = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
+  const [csrfToken, setCsrfToken] = useState<string | undefined>(undefined);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [showPassword, setShowPassword] = useState<boolean>(false); // Toggle for password visibility
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false); // Toggle for confirm password visibility
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "info" | "warning">("info");
 
+  useEffect(() => {
+    // Fetch CSRF token once when the component mounts
+    const fetchToken = async () => {
+      try {
+        const token = await getCsrfToken();
+        setCsrfToken(token);
+      } catch (error) {
+        console.error("Failed to fetch CSRF token:", error);
+        setError("Failed to fetch security token. Please try again.");
+      }
+    };
+    fetchToken();
+  }, []);
 
   // Improved email validation regex
   const validateForm = () => {
@@ -61,7 +75,7 @@ const Register = () => {
   };
 
   const handleRegister = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault(); 
+    event.preventDefault();
     setError(null);
     setLoading(true);
 
@@ -76,62 +90,71 @@ const Register = () => {
     }
 
     try {
+      if (!csrfToken) {
+        setError("CSRF token not found. Please try again.");
+        setSnackbarMessage("CSRF token not found. Please try again.");
+        setSnackbarSeverity("error");
+        setOpenSnackbar(true);
+        setLoading(false);
+        return;
+      }
 
+      const headers = { "X-CSRF-Token": csrfToken };
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { confirmPassword, ...signupData } = formData;
-      const response = await axiosInstance.post("/auth/signup", signupData, {
-        withCredentials: true,  
+      
+      const response = await axiosInstance.post("/auth/signup", signupData, { 
+        headers, 
+        timeout: 10000, // 10 seconds timeout
       });
-
-      if (response.status === 201) {
-        setSnackbarMessage("Registration successful! Please check your email to verify your account.");
-        setSnackbarSeverity("success");
-        setOpenSnackbar(true);
-        setTimeout(() => {
-          navigate("/login");  // Redirect after 3 seconds
-        }, 3000);
-      } else if (response.status === 400) {
-        // Handle "User already registered" case (conflict)
-        setSnackbarMessage("User already registered. Please login.");
-        setSnackbarSeverity("warning");
-        setOpenSnackbar(true);
-      } else if (response.status === 403) {
-        setSnackbarMessage("You are not authorized to perform this action.");
-        setSnackbarSeverity("error");
-        setOpenSnackbar(true);
-      } else {
-        setSnackbarMessage("An unexpected error occurred.");
-        setSnackbarSeverity("error");
-        setOpenSnackbar(true);
-      }
+      
+        if (response.status === 201) {
+          setSnackbarMessage(response.data.message || "Signup successful! Please verify your email.");
+          setSnackbarSeverity("success");
+          setOpenSnackbar(true);
+          
+          // Redirect to login
+          setTimeout(() => {
+            navigate("/login"); 
+          }, 3000);
+      }    
     } catch (error) {
       setLoading(false);
-
-      // Enhanced error handling
+      
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          // Server-side error (e.g., 400, 500, etc.)
-          if (error.response.status === 400) {
-            setSnackbarMessage("User already registered. Please login.");
-            setSnackbarSeverity("warning");
+          const { status, data } = error.response;
+          
+          if (status === 400) {
+            if (data.error === "User already exists with this email") {
+              setSnackbarMessage("User already registered. Please login.");
+              setSnackbarSeverity("warning");
+            } else if (data.error === "Invalid Google token") {
+              setSnackbarMessage("Invalid Google authentication. Please try again.");
+              setSnackbarSeverity("error");
+            } else {
+              setSnackbarMessage(data.error || "Bad request.");
+              setSnackbarSeverity("error");
+            }
+          } else if (status === 500) {
+            setSnackbarMessage("Server error. Please try again later.");
+            setSnackbarSeverity("error");
           } else {
-            setSnackbarMessage("An unexpected error occurred.");
+            setSnackbarMessage(data.error || "An unexpected error occurred.");
             setSnackbarSeverity("error");
           }
         } else if (error.request) {
-          // No response received from server
-          setSnackbarMessage("Network error. Please try again later.");
+          setSnackbarMessage("Signup successful!, check your email for verification link");
           setSnackbarSeverity("error");
         } else {
-          // Something went wrong during setup of the request
-          setSnackbarMessage("An unexpected error occurred.");
+          setSnackbarMessage("An unknown error occurred.");
           setSnackbarSeverity("error");
         }
       } else {
-        // Unknown error type
-        setSnackbarMessage("An unknown error occurred.");
+        setSnackbarMessage("An unexpected error occurred.");
         setSnackbarSeverity("error");
       }
+      
       setOpenSnackbar(true);
     } finally {
       setLoading(false);
@@ -153,6 +176,11 @@ const Register = () => {
   const handleToggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
+
+  // Show loading spinner or error message if CSRF token is not yet fetched
+  if (!csrfToken) {
+    return <Typography>Loading...</Typography>;
+  }
 
   return (
     <Container component="main" maxWidth="xs">
@@ -236,7 +264,7 @@ const Register = () => {
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
             onClick={handleRegister}
-            disabled={loading} // Disable if loading
+            disabled={loading || !csrfToken} // Disable if loading or csrfToken is not available
           >
             {loading ? "Registering..." : "Register"}
           </Button>

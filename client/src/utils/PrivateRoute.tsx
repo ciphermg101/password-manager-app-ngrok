@@ -10,70 +10,49 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   useEffect(() => {
     let isMounted = true; // Track if component is still mounted
 
-    // Function to fetch token from the backend
-    const fetchToken = async (): Promise<string | null> => {
-      try {
-        const response = await axiosInstance.get('/auth/get-token', {
-          withCredentials: true, // Ensures cookies are sent with the request
-        });
-
-        if (response.status === 200) {
-          return response.data.token;
-        } else {
-          throw new Error('Failed to fetch token');
-        }
-      } catch (error: unknown) {
-        if (axios.isAxiosError(error)) {
-          console.error(
-            'Error fetching token:',
-            error.response ? error.response.data : error.message
-          );
-        } else {
-          console.error('Unexpected error:', error);
-        }
-        return null; // Return null to indicate failure
-      }
-    };
-
-    // Function to check authentication status
     const checkAuth = async () => {
       try {
-        const authToken = await fetchToken();
-
-        if (!authToken) {
-          console.error('Access denied: Token not found');
-          if (isMounted) setIsAuthenticated(false);
-          navigate('/login'); // Redirect to login if no token
-          return;
-        }
-
-        // Use the token for authorization and handle different responses
+        // Send request to check authentication
         const response = await axiosInstance.get('/account/check-auth', {
-          headers: { Authorization: `Bearer ${authToken}` },
           withCredentials: true,
         });
 
+        if (!isMounted) return;
+
         if (response.status === 200) {
-          if (isMounted) setIsAuthenticated(true); // User is authenticated
+          // User authenticated for login purpose
+          setIsAuthenticated(true);
         } else if (response.status === 203) {
-          navigate('/enter-two-fa-code'); // Redirect to verification page
+          // User authenticated for 2FA purpose
+          navigate('/enter-two-fa-code');
+        } else {
+          // Any unexpected response leads to redirection
+          console.error('Unexpected response:', response);
+          setIsAuthenticated(false);
+          navigate('/login');
         }
       } catch (error) {
+        if (!isMounted) return;
+
         if (axios.isAxiosError(error)) {
           const status = error.response?.status;
-          if (status === 498) {
-            console.error('Token expired or invalid');
-          } else {
-            console.error('Authentication error:', error.response?.data || error.message);
+
+          switch (status) {
+            case 498:
+              console.error('Token expired or invalid.');
+              break;
+            case 401:
+              console.error('Unauthorized access.');
+              break;
+            default:
+              console.error('Unexpected error:', error.response?.data || error.message);
           }
         } else {
           console.error('Unexpected error:', error);
         }
 
-        if (isMounted) {
-          setIsAuthenticated(false);
-          navigate('/login'); // Redirect to login if not authenticated
-        }
+        setIsAuthenticated(false);
+        navigate('/login');
       }
     };
 
@@ -84,9 +63,10 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     };
   }, [navigate]);
 
-  if (isAuthenticated === null) return <div>Loading...</div>; // Loading state
+  // Show loading state until authentication is determined
+  if (isAuthenticated === null) return <div>Loading...</div>;
 
-  return isAuthenticated ? <>{children}</> : null; // Render children if authenticated
+  return isAuthenticated ? <>{children}</> : null;
 };
 
 export default PrivateRoute;

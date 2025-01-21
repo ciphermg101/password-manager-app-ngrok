@@ -9,7 +9,7 @@ const { csrfProtection } = require('../middleware/csrfMiddleware');
 // Rate Limiting for login attempts
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit to 5 requests per IP per window
+  max: 15, // Limit to 15 requests per IP per window
   message: {
     error: 'Too many login attempts. Please try again later.',
   },
@@ -104,7 +104,7 @@ router.post('/verify-2fa', loginLimiter, csrfProtection, async (req, res, next) 
 });
 
 // Route to get the token from the cookie
-router.get('/get-token', csrfProtection, async (req, res, next) => {
+router.get('/get-token', async (req, res, next) => {
   try {
     await getAuthCookie(req, res);
   } catch (err) {

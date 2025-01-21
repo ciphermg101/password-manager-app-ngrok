@@ -61,8 +61,12 @@ const Login = () => {
     }
   
     try {
-      const response = await axiosInstance.post( "/auth/login", { email, password }, { withCredentials: true });
-      
+      const response = await axiosInstance.post(
+        "/auth/login",
+        { email, password },
+        { withCredentials: true }
+      );
+  
       if (response.status === 200 && response.data) {
         const { action, message, token, email, userId } = response.data;
   
@@ -159,7 +163,7 @@ const Login = () => {
       const googleToken = credentialResponse.credential; // The token provided by Google
   
       // Send the token to the backend for verification and to receive backend tokens
-      const response = await axiosInstance.post("/auth/login/google", { googleToken }, { withCredentials: true });
+      const response = await axiosInstance.post("/auth/login/google", { googleToken });
   
       if (response.status === 200 && response.data) {
         const { action, message, token, refreshToken, userId, email } = response.data;

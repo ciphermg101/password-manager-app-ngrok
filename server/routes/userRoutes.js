@@ -6,7 +6,13 @@ const { csrfProtection } = require('../middleware/csrfMiddleware');
 const { protectedRoute, getCredentials, fetchAllCreds, updatePassword, deletePassword, savePassword, exportPasswords, importPasswords, getUsername, updateUserPassword, enableTwoFactorAuth, disableTwoFactorAuth, getTwoFactorAuthStatus } = require('../controllers/userController');
 
 // Protected route - Only accessible if logged in
-router.get('/check-auth', verifyToken, protectedRoute);
+router.get('/check-auth', csrfProtection, async (req, res, next) => {
+  try {
+    await protectedRoute(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Define a schema to validate the site_url
 const siteUrlValidationSchema = Joi.object({

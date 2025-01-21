@@ -49,33 +49,29 @@ exports.signup = async (req, res) => {
           });
   
           if (!user) {
-              // Encrypt username dynamically
-              const { encryptedField: encryptedUsername, iv: usernameIv } = encryptField(payload.name || googleEmail);
-              const placeholderPassword = 'google-oauth-user'; // Placeholder value for Google users
-              const passwordHash = await argon2.hash(placeholderPassword, {
-                type: argon2.argon2id,
-                memoryCost: 2 ** 16,
-                timeCost: 3,
-                parallelism: 3,
-              });
-  
-              // Create new user
-              user = await User.create({
-                  email: encryptedGoogleEmail,
-                  email_iv: googleEmailIv,
-                  username: encryptedUsername,
-                  username_iv: usernameIv,
-                  google_oauth_id: encryptedGoogleOauthId,
-                  google_oauth_id_iv: STATIC_GOOGLE_OAUTH_IV,
-                  password_hash: passwordHash,
-                  device_id: generateDeviceId(),
-              });
-          }
-
-          // Set tokens using plain email for user context
-          setTokens(req, res, user.id, googleEmail);
-  
-          return res.status(201).json({ message: 'Signup successful' });
+            user = await User.create({
+                email: encryptedGoogleEmail,
+                email_iv: googleEmailIv,
+                username: encryptedUsername,
+                username_iv: usernameIv,
+                google_oauth_id: encryptedGoogleOauthId,
+                google_oauth_id_iv: STATIC_GOOGLE_OAUTH_IV,
+                password_hash: passwordHash,
+                device_id: generateDeviceId(),
+                is_verified: true, // Mark Google users as verified
+            });
+        }
+        
+        // Generate login tokens
+        const { token, deviceId } = setTokens(res, user.id, googleEmail, user.device_id, "login");
+        
+        return res.status(201).json({
+            message: 'Login Successful!',
+            action: 'login_successful',
+            token,
+            deviceId,
+            email: googleEmail,
+        });        
       } catch (err) {
           console.error("Google OAuth Error:", err);
           return res.status(400).json({ error: 'Invalid Google token' });
@@ -132,9 +128,10 @@ exports.signup = async (req, res) => {
               return res.status(500).json({ message: 'Failed to send verification email. Please try again later.' });
           }
   
-          // Set tokens and respond
-          setTokens(req, res, user.id, email);
-          return res.status(201).json({ message: 'Signup successful. Please check your email to verify your account.' });
+          // respond with a success message
+          return res.status(201).json({ 
+            message: 'Signup successful. Please check your email to verify your account.' 
+        });        
   
       } catch (err) {
           console.error("Signup Error:", err);
@@ -204,7 +201,7 @@ exports.loginWithEmailPassword = async (req, res) => {
 
     // Check if the user is a Google OAuth user
     if (user.google_oauth_id) {
-      return res.status(400).json({ error: 'Please use Google to login' });
+      return res.status(403).json({ error: 'Please use Google to login' });
     }
 
     // Verify the password
@@ -430,7 +427,7 @@ exports.getAuthCookie = (req, res) => {
     const token = req.cookies.token; // Read the token from the cookies
 
     if (!token) {
-      return res.status(401).json({ error: 'Token not found' });
+      return res.status(400).json({ error: 'Token not found' });
     }
 
     // send the token to the frontend
